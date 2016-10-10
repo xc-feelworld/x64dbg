@@ -31,7 +31,8 @@
 #include "ThreadView.h"
 #include "PatchDialog.h"
 #include "CalculatorDialog.h"
-#include "StatusLabel.h"
+#include "DebugStatusLabel.h"
+#include "LogStatusLabel.h"
 #include "UpdateChecker.h"
 #include "SourceViewerManager.h"
 #include "SnowmanView.h"
@@ -45,6 +46,7 @@
 #include "CPUStack.h"
 #include "GotoDialog.h"
 #include "BrowseDialog.h"
+#include "CustomizeMenuDialog.h"
 #include "main.h"
 
 QString MainWindow::windowTitle = "";
@@ -81,6 +83,7 @@ MainWindow::MainWindow(QWidget* parent)
     connect(Bridge::getBridge(), SIGNAL(dbgStateChanged(DBGSTATE)), this, SLOT(dbgStateChangedSlot(DBGSTATE)));
     connect(Bridge::getBridge(), SIGNAL(addFavouriteItem(int, QString, QString)), this, SLOT(addFavouriteItem(int, QString, QString)));
     connect(Bridge::getBridge(), SIGNAL(setFavouriteItemShortcut(int, QString, QString)), this, SLOT(setFavouriteItemShortcut(int, QString, QString)));
+    connect(Bridge::getBridge(), SIGNAL(selectInMemoryMap(duint)), this, SLOT(displayMemMapWidget()));
 
     // Setup menu API
     initMenuApi();
@@ -192,40 +195,25 @@ MainWindow::MainWindow(QWidget* parent)
     mGraphView->setWindowTitle(tr("Graph"));
     mGraphView->setWindowIcon(DIcon("graph.png"));
 
-    // Create the tab widget
-    mTabWidget = new MHTabWidget();
+    // Create the tab widget and enable detaching and hiding
+    mTabWidget = new MHTabWidget(this, true, true);
 
     // Add all widgets to the list
-    mWidgetList.push_back(mCpuWidget);
-    mWidgetNativeNameList.push_back("CPUTab");
-    mWidgetList.push_back(mGraphView);
-    mWidgetNativeNameList.push_back("GraphTab");
-    mWidgetList.push_back(mLogView);
-    mWidgetNativeNameList.push_back("LogTab");
-    mWidgetList.push_back(mNotesManager);
-    mWidgetNativeNameList.push_back("NotesTab");
-    mWidgetList.push_back(mBreakpointsView);
-    mWidgetNativeNameList.push_back("BreakpointsTab");
-    mWidgetList.push_back(mMemMapView);
-    mWidgetNativeNameList.push_back("MemoryMapTab");
-    mWidgetList.push_back(mCallStackView);
-    mWidgetNativeNameList.push_back("CallStackTab");
-    mWidgetList.push_back(mSEHChainView);
-    mWidgetNativeNameList.push_back("SEHTab");
-    mWidgetList.push_back(mScriptView);
-    mWidgetNativeNameList.push_back("ScriptTab");
-    mWidgetList.push_back(mSymbolView);
-    mWidgetNativeNameList.push_back("SymbolsTab");
-    mWidgetList.push_back(mSourceViewManager);
-    mWidgetNativeNameList.push_back("SourceTab");
-    mWidgetList.push_back(mReferenceManager);
-    mWidgetNativeNameList.push_back("ReferencesTab");
-    mWidgetList.push_back(mThreadView);
-    mWidgetNativeNameList.push_back("ThreadsTab");
-    mWidgetList.push_back(mSnowmanView);
-    mWidgetNativeNameList.push_back("SnowmanTab");
-    mWidgetList.push_back(mHandlesView);
-    mWidgetNativeNameList.push_back("HandlesTab");
+    mWidgetList.push_back(WidgetInfo(mCpuWidget, "CPUTab"));
+    mWidgetList.push_back(WidgetInfo(mGraphView, "GraphTab"));
+    mWidgetList.push_back(WidgetInfo(mLogView, "LogTab"));
+    mWidgetList.push_back(WidgetInfo(mNotesManager, "NotesTab"));
+    mWidgetList.push_back(WidgetInfo(mBreakpointsView, "BreakpointsTab"));
+    mWidgetList.push_back(WidgetInfo(mMemMapView, "MemoryMapTab"));
+    mWidgetList.push_back(WidgetInfo(mCallStackView, "CallStackTab"));
+    mWidgetList.push_back(WidgetInfo(mSEHChainView, "SEHTab"));
+    mWidgetList.push_back(WidgetInfo(mScriptView, "ScriptTab"));
+    mWidgetList.push_back(WidgetInfo(mSymbolView, "SymbolsTab"));
+    mWidgetList.push_back(WidgetInfo(mSourceViewManager, "SourceTab"));
+    mWidgetList.push_back(WidgetInfo(mReferenceManager, "ReferencesTab"));
+    mWidgetList.push_back(WidgetInfo(mThreadView, "ThreadsTab"));
+    mWidgetList.push_back(WidgetInfo(mSnowmanView, "SnowmanTab"));
+    mWidgetList.push_back(WidgetInfo(mHandlesView, "HandlesTab"));
 
     // If LoadSaveTabOrder disabled, load tabs in default order
     if(!ConfigBool("Miscellaneous", "LoadSaveTabOrder"))
@@ -313,6 +301,9 @@ MainWindow::MainWindow(QWidget* parent)
     connect(ui->actionSnowman, SIGNAL(triggered()), this, SLOT(displaySnowmanWidget()));
     connect(ui->actionHandles, SIGNAL(triggered()), this, SLOT(displayHandlesWidget()));
     connect(ui->actionGraph, SIGNAL(triggered()), this, SLOT(displayGraphWidget()));
+    connect(ui->actionPreviousTab, SIGNAL(triggered()), this, SLOT(displayPreviousTab()));
+    connect(ui->actionNextTab, SIGNAL(triggered()), this, SLOT(displayNextTab()));
+    connect(ui->actionHideTab, SIGNAL(triggered()), this, SLOT(hideTab()));
     makeCommandAction(ui->actionStepIntoSource, "TraceIntoConditional src.line(cip) && !src.disp(cip)");
     makeCommandAction(ui->actionStepOverSource, "TraceOverConditional src.line(cip) && !src.disp(cip)");
     makeCommandAction(ui->actionseStepInto, "seStepInto");
@@ -322,6 +313,7 @@ MainWindow::MainWindow(QWidget* parent)
     connect(ui->actionAnimateOver, SIGNAL(triggered()), this, SLOT(animateOverSlot()));
     connect(ui->actionAnimateCommand, SIGNAL(triggered()), this, SLOT(animateCommandSlot()));
     connect(ui->actionSetInitializationScript, SIGNAL(triggered()), this, SLOT(setInitialzationScript()));
+    connect(ui->actionCustomizeMenus, SIGNAL(triggered()), this, SLOT(customizeMenu()));
 
     connect(mCpuWidget->getDisasmWidget(), SIGNAL(updateWindowTitle(QString)), this, SLOT(updateWindowTitleSlot(QString)));
     connect(mCpuWidget->getDisasmWidget(), SIGNAL(displayReferencesWidget()), this, SLOT(displayReferencesWidget()));
@@ -379,12 +371,12 @@ void MainWindow::setupCommandBar()
 void MainWindow::setupStatusBar()
 {
     // Status label (Ready, Paused, ...)
-    mStatusLabel = new StatusLabel(ui->statusBar);
+    mStatusLabel = new DebugStatusLabel(ui->statusBar);
     mStatusLabel->setText(tr("Ready"));
     ui->statusBar->addWidget(mStatusLabel);
 
     // Log line
-    mLastLogLabel = new StatusLabel();
+    mLastLogLabel = new LogStatusLabel(ui->statusBar);
     ui->statusBar->addPermanentWidget(mLastLogLabel, 1);
 
     // Time wasted counter
@@ -444,6 +436,8 @@ void MainWindow::setupLanguagesMenu()
 void MainWindow::closeEvent(QCloseEvent* event)
 {
     duint noClose = 0;
+    if(bCanClose)
+        emit Bridge::getBridge()->close();
     if(BridgeSettingGetUint("Gui", "NoCloseDialog", &noClose) && noClose)
         mCloseDialog->hide();
     else
@@ -471,12 +465,24 @@ void MainWindow::closeEvent(QCloseEvent* event)
 
 void MainWindow::setTab(QWidget* widget)
 {
+    // shown tabs
     for(int i = 0; i < mTabWidget->count(); i++)
     {
         if(mTabWidget->widget(i) == widget)
         {
             mTabWidget->setCurrentIndex(i);
-            break;
+            return;
+        }
+    }
+
+    // hidden tabs
+    for(int i = 0; i < mWidgetList.count(); i++)
+    {
+        if(mWidgetList[i].widget == widget)
+        {
+            addQWidgetTab(mWidgetList[i].widget, mWidgetList[i].nativeName);
+            mTabWidget->setCurrentIndex(mTabWidget->count() - 1);
+            return;
         }
     }
 }
@@ -488,7 +494,7 @@ void MainWindow::loadTabDefaultOrder()
     // Setup tabs
     //TODO
     for(int i = 0; i < mWidgetList.size(); i++)
-        addQWidgetTab(mWidgetList[i], mWidgetNativeNameList[i]);
+        addQWidgetTab(mWidgetList[i].widget, mWidgetList[i].nativeName);
 }
 
 void MainWindow::loadTabSavedOrder()
@@ -500,10 +506,10 @@ void MainWindow::loadTabSavedOrder()
     // Get tabIndex for each widget and add them to tabIndexToWidget
     for(int i = 0; i < mWidgetList.size(); i++)
     {
-        QString tabName = mWidgetNativeNameList[i];
+        QString tabName = mWidgetList[i].nativeName;
         duint tabIndex = Config()->getUint("TabOrder", tabName);
         if(!tabIndexToWidget.contains(tabIndex))
-            tabIndexToWidget.insert(tabIndex, std::make_pair(mWidgetList[i], tabName));
+            tabIndexToWidget.insert(tabIndex, std::make_pair(mWidgetList[i].widget, tabName));
         else
         {
             // Conflicts. Try to find an unused tab index.
@@ -512,7 +518,7 @@ void MainWindow::loadTabSavedOrder()
                 auto item = tabIndexToWidget.find(j);
                 if(item == tabIndexToWidget.end())
                 {
-                    tabIndexToWidget.insert(j, std::make_pair(mWidgetList[i], tabName));
+                    tabIndexToWidget.insert(j, std::make_pair(mWidgetList[i].widget, tabName));
                     break;
                 }
             }
@@ -545,6 +551,8 @@ void MainWindow::refreshShortcuts()
     setGlobalShortcut(ui->actionOpen, ConfigShortcut("FileOpen"));
     setGlobalShortcut(ui->actionAttach, ConfigShortcut("FileAttach"));
     setGlobalShortcut(ui->actionDetach, ConfigShortcut("FileDetach"));
+    setGlobalShortcut(ui->actionImportdatabase, ConfigShortcut("FileImportDatabase"));
+    setGlobalShortcut(ui->actionExportdatabase, ConfigShortcut("FileExportDatabase"));
     setGlobalShortcut(ui->actionExit, ConfigShortcut("FileExit"));
 
     setGlobalShortcut(ui->actionCpu, ConfigShortcut("ViewCpu"));
@@ -566,6 +574,9 @@ void MainWindow::refreshShortcuts()
     setGlobalShortcut(ui->actionSnowman, ConfigShortcut("ViewSnowman"));
     setGlobalShortcut(ui->actionHandles, ConfigShortcut("ViewHandles"));
     setGlobalShortcut(ui->actionGraph, ConfigShortcut("ViewGraph"));
+    setGlobalShortcut(ui->actionPreviousTab, ConfigShortcut("ViewPreviousTab"));
+    setGlobalShortcut(ui->actionNextTab, ConfigShortcut("ViewNextTab"));
+    setGlobalShortcut(ui->actionHideTab, ConfigShortcut("ViewHideTab"));
 
     setGlobalShortcut(ui->actionRun, ConfigShortcut("DebugRun"));
     setGlobalShortcut(ui->actioneRun, ConfigShortcut("DebugeRun"));
@@ -608,6 +619,7 @@ void MainWindow::refreshShortcuts()
     setGlobalShortcut(ui->actionReloadStylesheet, ConfigShortcut("OptionsReloadStylesheet"));
 
     setGlobalShortcut(ui->actionAbout, ConfigShortcut("HelpAbout"));
+    setGlobalShortcut(ui->actionBlog, ConfigShortcut("HelpBlog"));
     setGlobalShortcut(ui->actionDonate, ConfigShortcut("HelpDonate"));
     setGlobalShortcut(ui->actionCheckUpdates, ConfigShortcut("HelpCheckForUpdates"));
     setGlobalShortcut(ui->actionCalculator, ConfigShortcut("HelpCalculator"));
@@ -911,6 +923,21 @@ void MainWindow::displayGraphWidget()
     showQWidgetTab(mGraphView);
 }
 
+void MainWindow::displayPreviousTab()
+{
+    mTabWidget->showPreviousTab();
+}
+
+void MainWindow::displayNextTab()
+{
+    mTabWidget->showNextTab();
+}
+
+void MainWindow::hideTab()
+{
+    mTabWidget->deleteCurrentTab();
+}
+
 void MainWindow::openSettings()
 {
     SettingsDialog* settings = new SettingsDialog(this);
@@ -960,13 +987,13 @@ void MainWindow::setLastException(unsigned int exceptionCode)
 
 void MainWindow::findStrings()
 {
-    DbgCmdExec(QString("strref " + QString("%1").arg(mCpuWidget->getDisasmWidget()->getSelectedVa(), sizeof(dsint) * 2, 16, QChar('0')).toUpper()).toUtf8().constData());
+    DbgCmdExec(QString("strref " + ToPtrString(mCpuWidget->getDisasmWidget()->getSelectedVa())).toUtf8().constData());
     displayReferencesWidget();
 }
 
 void MainWindow::findModularCalls()
 {
-    DbgCmdExec(QString("modcallfind " + QString("%1").arg(mCpuWidget->getDisasmWidget()->getSelectedVa(), sizeof(dsint) * 2, 16, QChar('0')).toUpper()).toUtf8().constData());
+    DbgCmdExec(QString("modcallfind " + ToPtrString(mCpuWidget->getDisasmWidget()->getSelectedVa())).toUtf8().constData());
     displayReferencesWidget();
 }
 
@@ -1161,7 +1188,7 @@ void MainWindow::runSelection()
     if(!DbgIsDebugging())
         return;
 
-    QString command = "bp " + QString("%1").arg(mCpuWidget->getDisasmWidget()->getSelectedVa(), sizeof(dsint) * 2, 16, QChar('0')).toUpper() + ", ss";
+    QString command = "bp " + ToPtrString(mCpuWidget->getDisasmWidget()->getSelectedVa()) + ", ss";
     if(DbgCmdExecDirect(command.toUtf8().constData()))
         DbgCmdExecDirect("run");
 }
@@ -1291,7 +1318,7 @@ void MainWindow::reportBug()
 
 void MainWindow::crashDump()
 {
-    QMessageBox msg(QMessageBox::Critical, tr("Generate crash dump"), tr("This action will crash the debugger and generate a crash dump. You will LOSE ALL YOUR DATA. Do you really want to continue?"));
+    QMessageBox msg(QMessageBox::Critical, tr("Generate crash dump"), tr("This action will crash the debugger and generate a crash dump. You will LOSE ALL YOUR UNSAVED DATA. Do you really want to continue?"));
     msg.setWindowIcon(DIcon("fatal-error.png"));
     msg.setParent(this, Qt::Dialog);
     msg.setWindowFlags(msg.windowFlags() & (~Qt::WindowContextHelpButtonHint));
@@ -1708,6 +1735,14 @@ void MainWindow::setInitialzationScript()
     }
 }
 
+void MainWindow::customizeMenu()
+{
+    CustomizeMenuDialog customMenuDialog(this);
+    customMenuDialog.setWindowTitle(tr("Customize Menus"));
+    customMenuDialog.setWindowIcon(DIcon("analysis.png"));
+    customMenuDialog.exec();
+}
+
 #include "../src/bridge/Utf8Ini.h"
 
 void MainWindow::on_actionImportSettings_triggered()
@@ -1741,4 +1776,24 @@ void MainWindow::on_actionImportSettings_triggered()
             GuiUpdateAllViews();
         }
     }
+}
+
+void MainWindow::on_actionImportdatabase_triggered()
+{
+    if(!DbgIsDebugging())
+        return;
+    auto filename = QFileDialog::getOpenFileName(this, tr("Import database"), QString(), tr("Databases (%1);;All files (*.*)").arg(ArchValue("*.dd32", "*.dd64")));
+    if(!filename.length())
+        return;
+    DbgCmdExec(QString("dbload \"%1\"").arg(QDir::toNativeSeparators(filename)).toUtf8().constData());
+}
+
+void MainWindow::on_actionExportdatabase_triggered()
+{
+    if(!DbgIsDebugging())
+        return;
+    auto filename = QFileDialog::getSaveFileName(this, tr("Export database"), QString(), tr("Databases (%1);;All files (*.*)").arg(ArchValue("*.dd32", "*.dd64")));
+    if(!filename.length())
+        return;
+    DbgCmdExec(QString("dbsave \"%1\"").arg(QDir::toNativeSeparators(filename)).toUtf8().constData());
 }

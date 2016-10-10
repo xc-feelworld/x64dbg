@@ -21,7 +21,8 @@ class ReferenceManager;
 class ThreadView;
 class PatchDialog;
 class CalculatorDialog;
-class StatusLabel;
+class DebugStatusLabel;
+class LogStatusLabel;
 class UpdateChecker;
 class SourceViewerManager;
 class SnowmanView;
@@ -82,6 +83,9 @@ public slots:
     void displayThreadsWidget();
     void displaySnowmanWidget();
     void displayGraphWidget();
+    void displayPreviousTab();
+    void displayNextTab();
+    void hideTab();
     void openSettings();
     void openAppearance();
     void openCalculator();
@@ -137,6 +141,7 @@ public slots:
     void clickFavouriteTool();
     void chooseLanguage();
     void setInitialzationScript();
+    void customizeMenu();
     void addFavouriteItem(int type, const QString & name, const QString & description);
     void setFavouriteItemShortcut(int type, const QString & name, const QString & shortcut);
 
@@ -163,8 +168,8 @@ private:
     NotesManager* mNotesManager;
     DisassemblerGraphView* mGraphView;
 
-    StatusLabel* mStatusLabel;
-    StatusLabel* mLastLogLabel;
+    DebugStatusLabel* mStatusLabel;
+    LogStatusLabel* mLastLogLabel;
 
     UpdateChecker* mUpdateChecker;
     TimeWastedCounter* mTimeWastedCounter;
@@ -221,8 +226,23 @@ private:
 
     bool bCanClose;
     MainWindowCloseThread* mCloseThread;
-    QVector<QWidget*> mWidgetList;
-    QVector<QString> mWidgetNativeNameList;
+
+    struct WidgetInfo
+    {
+    public:
+        WidgetInfo() { }
+
+        WidgetInfo(QWidget* widget, QString nativeName)
+        {
+            this->widget = widget;
+            this->nativeName = nativeName;
+        }
+
+        QWidget* widget;
+        QString nativeName;
+    };
+
+    QVector<WidgetInfo> mWidgetList;
 
 protected:
     void dragEnterEvent(QDragEnterEvent* pEvent);
@@ -235,6 +255,8 @@ private slots:
     void on_actionFaq_triggered();
     void on_actionReloadStylesheet_triggered();
     void on_actionImportSettings_triggered();
+    void on_actionImportdatabase_triggered();
+    void on_actionExportdatabase_triggered();
 };
 
 #endif // MAINWINDOW_H

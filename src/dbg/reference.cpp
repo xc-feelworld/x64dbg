@@ -10,6 +10,17 @@
 #include "module.h"
 #include "threading.h"
 
+/**
+@brief RefFind Find reference to the buffer by a given criterion.
+@param Address The base address of the buffer
+@param Size The size of the buffer
+@param Callback The callback that is invoked to identify whether an instruction satisfies the criterion. prototype: bool callback(Capstone* disasm, BASIC_INSTRUCTION_INFO* basicinfo, REFINFO* refinfo)
+@param UserData The data that will be passed to Callback
+@param Silent If true, no log will be outputed.
+@param Name The name of the reference criterion. Not null.
+@param type The type of the memory buffer. Possible values:CURRENT_REGION,CURRENT_MODULE,ALL_MODULES
+@param disasmText If false, disassembled text will not be available.
+*/
 int RefFind(duint Address, duint Size, CBREF Callback, void* UserData, bool Silent, const char* Name, REFFINDTYPE type, bool disasmText)
 {
     char fullName[deflen];
@@ -106,7 +117,7 @@ int RefFind(duint Address, duint Size, CBREF Callback, void* UserData, bool Sile
             GuiReferenceSetProgress(percent);
         }, disasmText);
     }
-    else if(type == ALL_MODULES) // Search in all Modules
+    else if(type == ALL_MODULES)  // Search in all Modules
     {
         bool initCallBack = true;
         std::vector<MODINFO> modList;
@@ -134,7 +145,7 @@ int RefFind(duint Address, duint Size, CBREF Callback, void* UserData, bool Sile
         for(duint i = 0; i < modList.size(); i++)
         {
             scanStart = modList[i].base;
-            scanSize  = modList[i].size;
+            scanSize = modList[i].size;
 
             if(i != 0)
                 initCallBack = false;
@@ -154,13 +165,15 @@ int RefFind(duint Address, duint Size, CBREF Callback, void* UserData, bool Sile
             }, disasmText);
         }
     }
+    else
+        return 0;
 
     GuiReferenceSetProgress(100);
     GuiReferenceReloadData();
     return refInfo.refcount;
 }
 
-int RefFindInRange(duint scanStart, duint scanSize, CBREF Callback, void* UserData, bool Silent, REFINFO & refInfo, Capstone & cp, bool initCallBack, CBPROGRESS cbUpdateProgress, bool disasmText)
+int RefFindInRange(duint scanStart, duint scanSize, CBREF Callback, void* UserData, bool Silent, REFINFO & refInfo, Capstone & cp, bool initCallBack, const CBPROGRESS & cbUpdateProgress, bool disasmText)
 {
     // Allocate and read a buffer from the remote process
     Memory<unsigned char*> data(scanSize, "reffind:data");

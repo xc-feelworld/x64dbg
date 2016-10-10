@@ -198,6 +198,52 @@ QString MHTabWidget::getNativeName(int index)
     }
 }
 
+void MHTabWidget::showPreviousTab()
+{
+    if(QTabWidget::count() <= 1)
+    {
+        return;
+    }
+
+    int previousTabIndex = QTabWidget::currentIndex();
+    if(previousTabIndex == 0)
+    {
+        previousTabIndex = QTabWidget::count() - 1;
+    }
+    else
+    {
+        previousTabIndex--;
+    }
+
+    QTabWidget::setCurrentIndex(previousTabIndex);
+}
+
+void MHTabWidget::showNextTab()
+{
+    if(QTabWidget::count() <= 1)
+    {
+        return;
+    }
+
+    QTabWidget::setCurrentIndex((QTabWidget::currentIndex() + 1) % QTabWidget::count());
+}
+
+void MHTabWidget::deleteCurrentTab()
+{
+    if(QTabWidget::count() == 0)
+    {
+        return;
+    }
+
+    int index = QTabWidget::currentIndex();
+    DeleteTab(index);
+    if(index < count())
+    {
+        // open the tab to the right of the deleted tab
+        setCurrentIndex(index);
+    }
+}
+
 //----------------------------------------------------------------------------
 
 MHDetachedWindow::MHDetachedWindow(QWidget* parent, MHTabWidget* tabwidget) : QMainWindow(parent)
