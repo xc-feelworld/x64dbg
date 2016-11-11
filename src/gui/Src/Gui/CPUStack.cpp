@@ -233,6 +233,7 @@ void CPUStack::setupContextMenu()
     connect(mGotoBp, SIGNAL(triggered()), this, SLOT(gotoBpSlot()));
 
     mFreezeStack = new QAction(DIcon("freeze.png"), tr("Freeze the stack"), this);
+    mFreezeStack->setCheckable(true);
     this->addAction(mFreezeStack);
     connect(mFreezeStack, SIGNAL(triggered()), this, SLOT(freezeStackSlot()));
 
@@ -326,20 +327,11 @@ void CPUStack::setupContextMenu()
 
 void CPUStack::updateFreezeStackAction()
 {
-    QFont font = mFreezeStack->font();
-
     if(bStackFrozen)
-    {
-        font.setBold(true);
-        mFreezeStack->setFont(font);
         mFreezeStack->setText(tr("Unfreeze the stack"));
-    }
     else
-    {
-        font.setBold(false);
-        mFreezeStack->setFont(font);
         mFreezeStack->setText(tr("Freeze the stack"));
-    }
+    mFreezeStack->setChecked(bStackFrozen);
 }
 
 void CPUStack::refreshShortcutsSlot()
@@ -421,10 +413,6 @@ QString CPUStack::paintContent(QPainter* painter, dsint rowBase, int rowOffset, 
     int wBytePerRowCount = getBytePerRowCount();
     dsint wRva = (rowBase + rowOffset) * wBytePerRowCount - mByteOffset;
     duint wVa = rvaToVa(wRva);
-
-    // This sets the first visible row to be selected when stack is frozen, so that we can scroll the stack without it being reset to first selection
-    if(bStackFrozen && rowOffset == 0)
-        setSingleSelection(wRva);
 
     bool wIsSelected = isSelected(wRva);
     if(wIsSelected) //highlight if selected
@@ -662,7 +650,6 @@ void CPUStack::mouseDoubleClickEvent(QMouseEvent* event)
 
 void CPUStack::stackDumpAt(duint addr, duint csp)
 {
-    setFocus();
     addVaToHistory(addr);
     mCsp = csp;
 

@@ -49,7 +49,7 @@ Configuration::Configuration() : QObject(), noMoreMsgbox(false)
     defaultColors.insert("DisassemblyRestoredBytesColor", QColor("#008000"));
     defaultColors.insert("DisassemblyCommentColor", QColor("#000000"));
     defaultColors.insert("DisassemblyCommentBackgroundColor", Qt::transparent);
-    defaultColors.insert("DisassemblyAutoCommentColor", QColor("#008000"));
+    defaultColors.insert("DisassemblyAutoCommentColor", QColor("#AA5500"));
     defaultColors.insert("DisassemblyAutoCommentBackgroundColor", Qt::transparent);
     defaultColors.insert("DisassemblyMnemonicBriefColor", QColor("#717171"));
     defaultColors.insert("DisassemblyMnemonicBriefBackgroundColor", Qt::transparent);
@@ -473,7 +473,10 @@ Configuration::Configuration() : QObject(), noMoreMsgbox(false)
     defaultShortcuts.insert("ActionExecuteCommandScript", Shortcut(tr("Actions -> Execute Script Command"), "X"));
     defaultShortcuts.insert("ActionRefresh", Shortcut(tr("Actions -> Refresh"), "F5"));
     defaultShortcuts.insert("ActionGraph", Shortcut(tr("Actions -> Graph"), "G"));
+    defaultShortcuts.insert("ActionGraphFollowDisassembler", Shortcut(tr("Actions -> Graph -> Follow in disassembler"), "Shift+Return"));
     defaultShortcuts.insert("ActionGraphToggleOverview", Shortcut(tr("Actions -> Graph -> Toggle overview"), "O"));
+    defaultShortcuts.insert("ActionGraphRefresh", Shortcut(tr("Actions -> Graph -> Refresh"), "R"));
+    defaultShortcuts.insert("ActionGraphSyncOrigin", Shortcut(tr("Actions -> Graph -> Toggle sync with origin"), "S"));
     defaultShortcuts.insert("ActionIncrementx87Stack", Shortcut(tr("Actions -> Increment x87 Stack")));
     defaultShortcuts.insert("ActionDecrementx87Stack", Shortcut(tr("Actions -> Decrement x87 Stack")));
     defaultShortcuts.insert("ActionPush", Shortcut(tr("Actions -> Push")));

@@ -34,42 +34,42 @@ static bool bIsStopped = true;
 static char scriptDllDir[MAX_PATH] = "";
 static String notesFile;
 
-static CMDRESULT cbStrLen(int argc, char* argv[])
+static bool cbStrLen(int argc, char* argv[])
 {
     if(argc < 2)
     {
         dputs(QT_TRANSLATE_NOOP("DBG", "not enough arguments!"));
-        return STATUS_ERROR;
+        return false;
     }
     dprintf_untranslated("\"%s\"[%d]\n", argv[1], int(strlen(argv[1])));
-    return STATUS_CONTINUE;
+    return true;
 }
 
-static CMDRESULT cbClearLog(int argc, char* argv[])
+static bool cbClearLog(int argc, char* argv[])
 {
     GuiLogClear();
-    return STATUS_CONTINUE;
+    return true;
 }
 
-static CMDRESULT cbPrintf(int argc, char* argv[])
+static bool cbPrintf(int argc, char* argv[])
 {
     if(argc < 2)
         dprintf("\n");
     else
         dprintf("%s", argv[1]);
-    return STATUS_CONTINUE;
+    return true;
 }
 
 static bool DbgScriptDllExec(const char* dll);
 
-static CMDRESULT cbScriptDll(int argc, char* argv[])
+static bool cbScriptDll(int argc, char* argv[])
 {
     if(argc < 2)
     {
         dputs(QT_TRANSLATE_NOOP("DBG", "not enough arguments!"));
-        return STATUS_ERROR;
+        return false;
     }
-    return DbgScriptDllExec(argv[1]) ? STATUS_CONTINUE : STATUS_ERROR;
+    return DbgScriptDllExec(argv[1]);
 }
 
 #include "cmd-all.h"
@@ -223,6 +223,7 @@ static void registercommands()
     dbgcmdnew("TraceOverIntoTraceRecord\1toit", cbDebugTraceOverIntoTraceRecord, true); //Trace over into trace record
     dbgcmdnew("RunToParty", cbDebugRunToParty, true); //Run to code in a party
     dbgcmdnew("RunToUserCode\1rtu", cbDebugRunToUserCode, true); //Run to user code
+    dbgcmdnew("guidfind\1findguid", cbInstrGUIDFind, true); //find GUID references TODO: undocumented
 
     //thread control
     dbgcmdnew("createthread\1threadcreate\1newthread\1threadnew", cbDebugCreatethread, true); //create thread
@@ -313,6 +314,7 @@ static void registercommands()
     dbgcmdnew("analxrefs\1analx", cbInstrAnalxrefs, true); //analyze xrefs
     dbgcmdnew("analrecur\1analr", cbInstrAnalrecur, true); //analyze a single function
     dbgcmdnew("analadv", cbInstrAnalyseadv, true); //analyze xref,function and data
+    dbgcmdnew("traceexecute", cbInstrTraceexecute, true); //execute trace record on address TODO: undocumented
 
     dbgcmdnew("virtualmod", cbInstrVirtualmod, true); //virtual module
     dbgcmdnew("symdownload\1downloadsym", cbDebugDownloadSymbol, true); //download symbols
@@ -418,11 +420,10 @@ static void registercommands()
     dbgcmdnew("visualize", cbInstrVisualize, true); //visualize analysis
     dbgcmdnew("meminfo", cbInstrMeminfo, true); //command to debug memory map bugs
     dbgcmdnew("briefcheck", cbInstrBriefcheck, true); //check if mnemonic briefs are missing
-    dbgcmdnew("traceexecute", cbInstrTraceexecute, true); //execute trace record on address
-    dbgcmdnew("guidfind\1findguid", cbInstrGUIDFind, true); //find GUID references
+    dbgcmdnew("focusinfo", cbInstrFocusinfo, false);
 };
 
-static bool cbCommandProvider(char* cmd, int maxlen)
+bool cbCommandProvider(char* cmd, int maxlen)
 {
     MESSAGE msg;
     MsgWait(gMsgStack, &msg);
@@ -452,7 +453,7 @@ extern "C" DLL_EXPORT bool _dbg_dbgcmdexec(const char* cmd)
 
 static DWORD WINAPI DbgCommandLoopThread(void* a)
 {
-    cmdloop(cbBadCmd, cbCommandProvider, nullptr, false);
+    cmdloop();
     return 0;
 }
 
@@ -593,8 +594,10 @@ extern "C" DLL_EXPORT const char* _dbg_dbginit()
     dbginit();
     dputs(QT_TRANSLATE_NOOP("DBG", "Initializing debugger functions..."));
     dbgfunctionsinit();
+#ifdef ENABLE_MEM_TRACE
     dputs(QT_TRANSLATE_NOOP("DBG", "Setting JSON memory management functions..."));
     json_set_alloc_funcs(json_malloc, json_free);
+#endif //ENABLE_MEM_TRACE
     dputs(QT_TRANSLATE_NOOP("DBG", "Initializing capstone..."));
     Capstone::GlobalInitialize();
     dputs(QT_TRANSLATE_NOOP("DBG", "Initializing Yara..."));
@@ -758,7 +761,7 @@ extern "C" DLL_EXPORT void _dbg_dbgexitsignal()
 
 extern "C" DLL_EXPORT bool _dbg_dbgcmddirectexec(const char* cmd)
 {
-    if(cmddirectexec(cmd) == STATUS_ERROR)
+    if(cmddirectexec(cmd) == false)
         return false;
     return true;
 }
